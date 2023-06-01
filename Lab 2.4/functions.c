@@ -15,7 +15,6 @@ double **randm(int n) {
         }
     }
     return matrix;
-
 }
 
 double **mulmr(double coef, double **matrix, int n) {
