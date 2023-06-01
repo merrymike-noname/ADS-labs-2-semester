@@ -17,7 +17,6 @@ struct coordinates {
     double loopY[verts_amount];
 };
 
-
 double **randm(int n) {
     srand(2211);
     double **matrix = (double **) malloc(sizeof(double *) * n);
@@ -30,7 +29,6 @@ double **randm(int n) {
         }
     }
     return matrix;
-
 }
 
 double **mulmr(double coef, double **matrix, int n) {
@@ -41,28 +39,6 @@ double **mulmr(double coef, double **matrix, int n) {
         }
     }
     return matrix;
-}
-
-
-double **symmetricMatrix(double **matrix, int n) {
-    double **symmetrical = (double **) malloc(n * sizeof(double *));
-    for (int i = 0; i < n; ++i) {
-        symmetrical[i] = (double *) malloc(n * sizeof(double));
-    }
-    for (int i = 0; i < n; i++) {
-        for (int j = 0; j < n; j++) {
-            symmetrical[i][j] = matrix[i][j];
-        }
-    }
-    for (int i = 0; i < n; i++) {
-        for (int j = 0; j < n; j++) {
-            if (symmetrical[i][j] != symmetrical[j][i]) {
-                symmetrical[i][j] = 1;
-                symmetrical[j][i] = 1;
-            }
-        }
-    }
-    return symmetrical;
 }
 
 void freeMatrix(double **matrix, int n) {
@@ -94,12 +70,33 @@ void arrow(double fi, double px, double py, HDC hdc) {
     LineTo(hdc, rx, ry);
 }
 
-void depictArch(int startX, int startY, int finalX, int finalY, int archInterval, HDC hdc) {
+double **symmetricMatrix(double **matrix, int n) {
+    double **symmetrical = (double **) malloc(n * sizeof(double *));
+    for (int i = 0; i < n; ++i) {
+        symmetrical[i] = (double *) malloc(n * sizeof(double));
+    }
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < n; j++) {
+            symmetrical[i][j] = matrix[i][j];
+        }
+    }
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < n; j++) {
+            if (symmetrical[i][j] != symmetrical[j][i]) {
+                symmetrical[i][j] = 1;
+                symmetrical[j][i] = 1;
+            }
+        }
+    }
+    return symmetrical;
+}
+
+void drawArch(int startX, int startY, int finishX, int finishY, int archInterval, HDC hdc) {
     XFORM transformMatrix;
     XFORM initialMatrix;
     GetWorldTransform(hdc, &initialMatrix);
 
-    double angle = atan2(finalY - startY, finalX - startX) - M_PI / 2.0;
+    double angle = atan2(finishY - startY, finishX - startX) - M_PI / 2.0;
     transformMatrix.eM11 = (FLOAT) cos(angle);
     transformMatrix.eM12 = (FLOAT) sin(angle);
     transformMatrix.eM21 = (FLOAT) (-sin(angle));
@@ -108,39 +105,32 @@ void depictArch(int startX, int startY, int finalX, int finalY, int archInterval
     transformMatrix.eDy = (FLOAT) startY;
     SetWorldTransform(hdc, &transformMatrix);
 
-    const double archWidthRatio = 0.75;
-    double archLength = sqrt((finalX - startX) * (finalX - startX) + (finalY - startY) * (finalY - startY));
+    const double archWidth = 0.75;
+    double length = sqrt((finishX - startX) * (finishX - startX) + (finishY - startY) * (finishY - startY));
     double radiusOfVertex = 15.0;
-    double semiMinorAxis = archWidthRatio * archLength;
-    double semiMajorAxis = archLength / 2;
-
-    double ellipseStartY = semiMajorAxis;
-
+    double semiMinorAxis = archWidth * length;
+    double semiMajorAxis = length / 2;
     double vertexAreaSquared = semiMajorAxis * semiMajorAxis * radiusOfVertex * radiusOfVertex;
     double semiAxesSquared = semiMinorAxis * semiMinorAxis * semiMajorAxis * semiMajorAxis;
-    double distanceFromCenter = semiMinorAxis * semiMinorAxis * ellipseStartY * ellipseStartY;
-    double distanceFromVertex = semiMinorAxis * semiMinorAxis * radiusOfVertex * radiusOfVertex;
+    double ellipseStartY = semiMajorAxis;
+    double radius = semiMinorAxis * semiMinorAxis * ellipseStartY * ellipseStartY;
+    double distance = semiMinorAxis * semiMinorAxis * radiusOfVertex * radiusOfVertex;
     double semiMinorAxisPow = pow(semiMinorAxis, 4);
-
-    double intersection = semiMajorAxis *
-                          sqrt(vertexAreaSquared - semiAxesSquared + distanceFromCenter - distanceFromVertex +
-                               semiMinorAxisPow);
+    double crossing = semiMajorAxis * sqrt(vertexAreaSquared - semiAxesSquared + radius - distance + semiMinorAxisPow);
     double semiMinorAxisSquaredEllipseStartY = semiMinorAxis * semiMinorAxis * ellipseStartY;
     double denominator = -semiMajorAxis * semiMajorAxis + semiMinorAxis * semiMinorAxis;
-
-
-    double contactYRightTop = (semiMinorAxisSquaredEllipseStartY - intersection) / denominator;
+    double contactYRightTop = (semiMinorAxisSquaredEllipseStartY - crossing) / denominator;
     double contactXRightTop = sqrt(radiusOfVertex * radiusOfVertex - contactYRightTop * contactYRightTop);
-    double contactYBottom = archLength - contactYRightTop;
+    double contactYBottom = length - contactYRightTop;
     double contactXLeftBottom = -contactXRightTop;
 
     if (archInterval <= verts_amount / 2) {
-        Arc(hdc, -archWidthRatio * archLength, archLength, archWidthRatio * archLength, 0, 0, 0, 0, archLength);
-        double angleOfArrow = -atan2(archLength - contactYBottom, contactXLeftBottom) + 0.3 / 3;
+        Arc(hdc, -archWidth * length, length, archWidth * length, 0, 0, 0, 0, length);
+        double angleOfArrow = -atan2(length - contactYBottom, contactXLeftBottom) + 0.3 / 3;
         arrow(angleOfArrow, contactXLeftBottom, contactYBottom, hdc);
     } else {
-        Arc(hdc, -archWidthRatio * archLength, archLength, archWidthRatio * archLength, 0, 0, archLength, 0, 0);
-        double angleOfArrow = -atan2(archLength - contactYBottom, -contactXLeftBottom) - 0.3 / 3;
+        Arc(hdc, -archWidth * length, length, archWidth * length, 0, 0, length, 0, 0);
+        double angleOfArrow = -atan2(length - contactYBottom, -contactXLeftBottom) - 0.3 / 3;
         arrow(angleOfArrow, -contactXLeftBottom, contactYBottom, hdc);
     }
 
@@ -157,22 +147,18 @@ void drawDirectedGraph(int centerX, int centerY, int radiusOfGraph, int radiusOf
             if ((j >= i && matrix[i][j] == 1) || (j <= i && matrix[i][j] == 1 && matrix[j][i] == 0)) {
                 if (i == j) {
                     SelectObject(hdc, GPen);
-
                     Ellipse(hdc, coordinates.loopX[i] - radiusOfLoop, coordinates.loopY[i] - radiusOfLoop,
                             coordinates.loopX[i] + radiusOfLoop, coordinates.loopY[i] + radiusOfLoop);
 
-
-                    double radiusOfContact = radiusOfGraph + radiusOfLoop / 2.;
                     double triangleHeight = sqrt(3) * radiusOfVertex / 2.;
-                    double loopAngle = atan2(triangleHeight, radiusOfContact);
-                    double contactDistance = sqrt(radiusOfContact * radiusOfContact + triangleHeight * triangleHeight);
+                    double radiusOfContact = radiusOfGraph + radiusOfLoop / 2.;
+                    double distance = sqrt(radiusOfContact * radiusOfContact + triangleHeight * triangleHeight);
                     double angleToContactVertex = atan2(coordinates.ny[i] - centerY, coordinates.nx[i] - centerX);
-
-                    double contactPointX = centerX + contactDistance * cos(angleToContactVertex + loopAngle);
-                    double contactPointY = centerY + contactDistance * sin(angleToContactVertex + loopAngle);
-
-                    double curvatureAngle = angleToContactVertex + 0.3 / 2.;
-                    arrow(curvatureAngle, contactPointX, contactPointY, hdc);
+                    double loopAngle = atan2(triangleHeight, radiusOfContact);
+                    double contactCoordX = centerX + distance * cos(angleToContactVertex + loopAngle);
+                    double contactCoordY = centerY + distance * sin(angleToContactVertex + loopAngle);
+                    double curveAngle = angleToContactVertex + 0.3 / 2.;
+                    arrow(curveAngle, contactCoordX, contactCoordY, hdc);
                     SelectObject(hdc, KPen);
                 } else {
                     LineTo(hdc, coordinates.nx[j], coordinates.ny[j]);
@@ -181,7 +167,7 @@ void drawDirectedGraph(int centerX, int centerY, int radiusOfGraph, int radiusOf
                           coordinates.ny[j] + radiusOfVertex * sin(line_angle), hdc);
                 }
             } else if (j < i && matrix[i][j] == 1 && matrix[j][i] == 1) {
-                depictArch(coordinates.nx[i], coordinates.ny[i], coordinates.nx[j], coordinates.ny[j], fabs(i - j), hdc);
+                drawArch(coordinates.nx[i], coordinates.ny[i], coordinates.nx[j], coordinates.ny[j], fabs(i - j), hdc);
             }
 
         }
@@ -192,10 +178,8 @@ void drawUndirectedGraph(int centerX, int centerY, int radiusOfGraph, int radius
                          struct coordinates coordinates, double **matrix,
                          HPEN KPen, HPEN GPen, HDC hdc) {
     for (int i = 0; i < verts_amount; ++i) {
-
         for (int j = 0; j < verts_amount; ++j) {
             MoveToEx(hdc, coordinates.nx[i], coordinates.ny[i], NULL);
-
             if (matrix[i][j] == 1) {
                 if (i == j) {
                     SelectObject(hdc, GPen);
@@ -207,12 +191,9 @@ void drawUndirectedGraph(int centerX, int centerY, int radiusOfGraph, int radius
                     LineTo(hdc, coordinates.nx[j], coordinates.ny[j]);
                 }
             }
-
         }
     }
-
 }
-
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpszCmdLine, int nCmdShow) {
     WNDCLASS w;
@@ -260,7 +241,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lParam) {
         case WM_CREATE: {
             Button_directed = CreateWindow(
                     (LPCSTR) "BUTTON",
-                    (LPCSTR) "Switch to Directed",
+                    (LPCSTR) "Directed",
                     WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
                     700,
                     500,
@@ -272,7 +253,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lParam) {
                     NULL);
             Button_undirected = CreateWindow(
                     (LPCSTR) "BUTTON",
-                    (LPCSTR) "Switch to Undirected",
+                    (LPCSTR) "Undirected",
                     WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
                     700,
                     580,
@@ -314,50 +295,39 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lParam) {
             SelectObject(hdc, NoPen);
             Rectangle(hdc, 0, 0, 670, 700);
 
-
             char *nn[verts_amount] = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10\0", "11\0"};
 
             struct coordinates coordinates;
-
             double circleRadius = 200;
             double vertexRadius = circleRadius / 11;
-
             double loopRadius = vertexRadius;
             double dtx = vertexRadius / 2.5;
-
             double circleCenterX = 370;
             double circleCenterY = 360;
 
-
             double angleAlpha = 2.0 * M_PI / (double) verts_amount;
             for (int i = 0; i < verts_amount; i++) {
-
                 double sinAlpha = sin(angleAlpha * (double) i);
                 double cosAlpha = cos(angleAlpha * (double) i);
                 coordinates.nx[i] = circleCenterX + circleRadius * sinAlpha;
                 coordinates.ny[i] = circleCenterY - circleRadius * cosAlpha;
                 coordinates.loopX[i] = circleCenterX + (circleRadius + loopRadius) * sinAlpha;
                 coordinates.loopY[i] = circleCenterY - (circleRadius + loopRadius) * cosAlpha;
-
             }
-
 
             double **T = randm(verts_amount);
             double coefficient = 1.0 - 0.02 - 0.005 - 0.25;
             double **A = mulmr(coefficient, T, verts_amount);
-
             int DefaultMatrixX = 720;
             int DefaultMatrixY = 50;
-            TextOut(hdc, DefaultMatrixX, DefaultMatrixY, (LPCSTR) L"Initial Matrix", 28);
+            TextOut(hdc, DefaultMatrixX, DefaultMatrixY, (LPCSTR) L"Default Matrix", 28);
             printMatrix(A, verts_amount, DefaultMatrixX, DefaultMatrixY, hdc);
-
             double **R = randm(verts_amount);
             double **C = symmetricMatrix(mulmr(coefficient, R, verts_amount), verts_amount);
             int DefaultSymmetricMatrixX = DefaultMatrixX;
             int DefaultSymmetricMatrixY = DefaultMatrixY + 210;
             TextOut(hdc, DefaultSymmetricMatrixX, DefaultSymmetricMatrixY, (LPCSTR) L"Symmetric Matrix", 31);
             printMatrix(C, verts_amount, DefaultSymmetricMatrixX, DefaultSymmetricMatrixY, hdc);
-
 
             SelectObject(hdc, GetStockObject(HOLLOW_BRUSH));
             SelectObject(hdc, KPen);
@@ -380,10 +350,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT messg, WPARAM wParam, LPARAM lParam) {
                         coordinates.nx[i] + vertexRadius, coordinates.ny[i] + vertexRadius);
                 TextOut(hdc, coordinates.nx[i] - dtx, coordinates.ny[i] - vertexRadius / 2, nn[i], 2);
             }
-
-
             EndPaint(hWnd, &ps);
-
             freeMatrix(A, verts_amount);
             freeMatrix(C, verts_amount);
         case WM_DESTROY:
